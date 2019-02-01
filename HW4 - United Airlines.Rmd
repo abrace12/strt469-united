@@ -1,0 +1,249 @@
+---
+title: "HW4 - United Airlines"
+author: "Colton Ortolf"
+date: "1/30/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE, message = FALSE}
+library(dplyr)
+library(haven)
+library(kableExtra)
+data<-read_dta("united_noshow_final.dta")
+```
+
+# Data Cleaning
+```{r}
+#Remove duplicate values
+duplicates <- duplicated(data)
+data <- data %>% filter(!duplicates)
+
+#Replace blanks in mileageplus
+data$mileageplus[data$mileageplus == ""] <- "N"
+
+#Replace blanks in booking country
+data$bookingcountry[data$bookingcountry == ""] <- "Unknown"
+
+#Replace assigned seat values with 1, 0
+data$assignedseat[data$assignedseat == "Y"] <- 1
+data$assignedseat[data$assignedseat == "N"] <- 0
+
+#Replace blanks in Duty Code
+data$bookingagentdutycode[data$bookingagentdutycode == ""] <- "NA"
+
+#Create factors for categorical variables
+data$mileageplus <- as.factor(data$mileageplus)
+data$bookingcountry <- as.factor(data$bookingcountry)
+data$bookingclass <- as.factor(data$bookingclass)
+data$assignedseat <- as.factor(data$assignedseat)
+data$eticketed <- as.factor(data$eticketed)
+data$bookingcrscode <- as.factor(data$bookingcrscode)
+data$bookingagentdutycode <- as.factor(data$bookingagentdutycode)
+data$dow <- as.factor(data$dow)
+data$bookedUS <- as.factor(data$bookedUS)
+data$bookedDE <- as.factor(data$bookedDE)
+data$bookedCN <- as.factor(data$bookedCN)
+data$bookedother <- as.factor(data$bookedother)
+data$upline <- as.factor(data$upline)
+data$downline <- as.factor(data$downline)
+```
+
+# Data Exploration
+
+## No Shows by Mileage Plus Status
+```{r, message=FALSE}
+#Percent of no shows by mileageplus status
+data %>% group_by(mileageplus) %>% summarize(total_passengers = n(), noshow = sum(noshow), noshow_pct = round(noshow / total_passengers, 2)) %>% arrange(desc(total_passengers)) %>% kable() %>% 
+kable_styling(latex_options =c("striped", "hold_position"))
+```
+The majority of passengers have no mileageplus status (50%), and these passengers have the gratest noshow rate (11%). Outside the no status customers, the no-show rates are very similar. Thus, we may consider summarizing this variable into two categories: "No Status", "Status." 
+
+## No Shows by Assigned Seat
+```{r, message=FALSE}
+#Percent of no shows by assigned seat
+data %>% group_by(assignedseat) %>% summarize(total_passengers = n(), noshow = sum(noshow), noshow_pct = round(noshow / total_passengers, 2)) %>% arrange(desc(total_passengers)) %>% kable() %>% 
+kable_styling(latex_options =c("striped", "hold_position"))
+```
+Individuals who do not have an assigned seat represent ~25% of the population, but have a much higher no show rate. We will certainly include this in our regression.
+
+## No Shows by Booking Class
+```{r, message=FALSE}
+#Percent of no shows by booking class
+data %>% group_by(bookingclass) %>% summarize(total_passengers = n(), noshow = sum(noshow), noshow_pct = round(noshow / total_passengers, 2)) %>% arrange(desc(noshow_pct)) %>% kable() %>% 
+kable_styling(latex_options =c("striped", "hold_position"))
+```
+While largest bucket of tickets are in the L class (deep discounted economy fairs), the no show rate for these customers is much lower than discounted and full fare economy class. However, given the sample size of discounted and full fare, these figures may not be representative of the overall population. We believe this bucketing system is too granular given that several codes constitute a certain type of ticket. We will bucket them according to the United booking breakdown on the website for the regression. We should also consider breaking down fares into discounted vs. full fare
+
+## No Shows by Number in Party
+```{r, message=FALSE}
+#Percent of no shows by number in party
+data %>% group_by(numberinparty) %>% summarize(total_passengers = n(), noshow = sum(noshow), noshow_pct = round(noshow / total_passengers, 2)) %>% arrange(desc(noshow_pct)) %>% kable() %>% 
+kable_styling(latex_options =c("striped", "hold_position"))
+```
+The group sizes as numerical values are not very useful given the small number of people that fall into certain buckets. Instead, we should consider grouping them by individual, small group, large group. 
+
+## No Shows by Booking Country
+```{r, message=FALSE}
+#Percent of no shows by booking country
+data %>% group_by(bookingcountry) %>% summarize(total_passengers = n(), noshow = sum(noshow), noshow_pct = round(noshow / total_passengers, 2)) %>% arrange(desc(noshow_pct)) %>% kable() %>% 
+kable_styling(latex_options =c("striped", "hold_position"))
+```
+
+## No Shows by Eticketing
+```{r, message=FALSE}
+#Percent of no shows by eticketing
+data %>% group_by(eticketed) %>% summarize(total_passengers = n(), noshow = sum(noshow), noshow_pct = round(noshow / total_passengers, 2)) %>% arrange(desc(noshow_pct)) %>% kable() %>% 
+kable_styling(latex_options =c("striped", "hold_position"))
+```
+This data demonstrates a significant difference in the rate of noshows for eticketd vs. non-eticketd passengers. Will definiteling include in the regression.  
+
+## No Shows by CRS Code
+```{r, message=FALSE}
+#Percent of no shows by crscode
+data %>% group_by(bookingcrscode) %>% summarize(total_passengers = n(), noshow = sum(noshow), noshow_pct = round(noshow / total_passengers, 2)) %>% arrange(desc(noshow_pct)) %>% kable() %>% 
+kable_styling(latex_options =c("striped", "hold_position"))
+```
+There are far too many booking crs codes for this to produce meaningful results. Instead, suggest grouping into non-UA and UA bookings  
+
+## No Shows by Booking Agent
+```{r, message=FALSE}
+#Percent of no shows by agent
+data %>% group_by(bookingagentdutycode) %>% summarize(total_passengers = n(), noshow = sum(noshow), noshow_pct = round(noshow / total_passengers, 2)) %>% arrange(desc(noshow_pct)) %>% kable() %>% 
+kable_styling(latex_options =c("striped", "hold_position"))
+```
+While the data shows significant difference between certain booking agents, it is difficult to understand why this would be given that we don't knoww the meaning of each code.  
+
+## No Shows by Upline, Downline
+```{r, message=FALSE}
+#Percent of no shows by upline downline
+data %>% group_by(upline, downline) %>% summarize(total_passengers = n(), noshow = sum(noshow), noshow_pct = round(noshow / total_passengers, 2)) %>% arrange(desc(noshow_pct)) %>% kable() %>% 
+kable_styling(latex_options =c("striped", "hold_position"))
+```
+The data demonstrates that those flights that did not have an upline connection but did have a downline connection have the greatest rate of no shows. We will include both variables in our model to begin.
+
+# Data Modifications
+```{r, message=FALSE, warning=FALSE}
+#Create a status / no status column (1=status, 0 = no status)
+data$status[data$mileageplus == "N"] <- 0
+data$status[data$mileageplus != "N"] <- 1
+data$status <- as.factor(data$status)
+
+#Create new booking class variables
+data$unitedclass[data$bookingclass == "Y" | data$bookingclass == "B" | data$bookingclass == "M" | data$bookingclass == "E" | data$bookingclass == "U" | data$bookingclass == "H" | data$bookingclass == "Q" | data$bookingclass == "V" | data$bookingclass == "W" | data$bookingclass == "S" | data$bookingclass == "T" | data$bookingclass == "L" | data$bookingclass == "K" | data$bookingclass == "V" | data$bookingclass == "N"] <- "economy"
+data$unitedclass[data$bookingclass == "F" | data$bookingclass == "A" | data$bookingclass == "J" | data$bookingclass == "C" | data$bookingclass == "D" | data$bookingclass == "P" | data$bookingclass == "Z"] <- "first_business"
+data$unitedclass[is.na(data$unitedclass)] <- "other"
+data$unitedclass <- as.factor(data$unitedclass)
+
+
+#Create new deep discount variable
+data$discounted[data$bookingclass == "P" | data$bookingclass == "Z" | data$bookingclass == "M" | data$bookingclass == "E" | data$bookingclass == "U" | data$bookingclass == "H" | data$bookingclass == "Q" | data$bookingclass == "V" | data$bookingclass == "W" | data$bookingclass == "S" | data$bookingclass == "T" | data$bookingclass == "L" | data$bookingclass == "K" | data$bookingclass == "V" | data$bookingclass == "N"] <- 1
+data$discounted[is.na(data$discounted)] <- 0
+data$discounted <- as.factor(data$discounted)
+```
+
+```{r, echo = FALSE, results="hide", include=FALSE}
+#Relevel but don't display output
+relevel(data$discounted, ref=2)
+```
+
+```{r}
+#Create a new group size variable
+data$groupsize[data$numberinparty == 1] <- "individual"
+data$groupsize[data$numberinparty > 1 & data$numberinparty < 6] <- "small_group"
+data$groupsize[data$numberinparty > 5] <- "large_group"
+data$groupsize <- as.factor(data$groupsize)
+
+
+#Create a new booking country variable
+data$bookingcountrygroup[data$bookingcountry == "US"] <- "US"
+data$bookingcountrygroup[data$bookingcountry != "US"] <- "NonUS"
+data$bookingcountrygroup <- as.factor(data$bookingcountrygroup)
+
+#Create a new booking crscode variable
+data$bookingcrscodegroup[data$bookingcrscode == "UA"] <- "UA"
+data$bookingcrscodegroup[data$bookingcrscode != "UA"] <- "NonUA"
+data$bookingcrscodegroup <- as.factor(data$bookingcrscodegroup)
+```
+
+# Building a Model
+
+## Initial Model
+```{r, message=FALSE, warning=FALSE}
+#subset the data to show only flights booked 5 or more days before the departure date
+reg_data <- data %>% filter(daystodep >=5)
+
+#Run the initial regression
+logit_base <- glm( noshow ~ status + assignedseat + unitedclass + discounted + groupsize + modifycount + bookingcountrygroup + daystodep + eticketed + bookingcrscodegroup + upline + downline, data = reg_data, family = binomial(link = "logit") )
+summary(logit_base)
+```
+### Results
+Description of Variables in Baseline Model:
+  + Intercept: Passengers with no status, no assigned seat, sitting in non-discounted economy ticket, party size of 1, outside the US, non-eticketed, not booking from UA, no connections
+  + status: passengers with UA or star alliance status
+  + assignedseat: passengers with an assigned seat
+  + unitedclass: dummy variables for passenger class that is non-economy
+  + dicounted: dummy indicating whether the ticket was discounted
+  + groupsize: dummy indicating if the booking was for a group party
+  + modifycount: number of times itinerary was modified
+  + bookingcountrygroup: dummy indicating booking came from US
+  + days to dep: Number of days until departure
+  + eticketed: Dummy indicating whether there is an eticket
+  + bookingcrscodegroup: Dummy indicating whether the ticket was booked from a UA agent
+  + upline / downline: dummies indicating upstream and downstram connections
+  
+## Model Tests
+
+Some of the variables in the regression have questionable p-values. We must check for model robustness and run 
+partial F tests to determine if there is group significance.
+
+### United Class
+```{r}
+#Regression without class
+logit_noclass <- glm( noshow ~ status + assignedseat + discounted + groupsize + modifycount + bookingcountrygroup + daystodep + eticketed + bookingcrscodegroup + upline + downline, data = reg_data, family = binomial(link = "logit") )
+summary(logit_noclass)
+
+#Partial F Test
+anova(logit_base, logit_noclass, test = "LR")
+```
+The regression without class shows significant impacts on the coefficients of other variables. Additional, the partial F test shows a statistically significant p-value. We will leave this variable in the regression despite the high p value for the first/business category dummy.
+
+### Group Size
+```{r}
+#Regression without group size
+logit_noparty <- glm( noshow ~ status + assignedseat + unitedclass + discounted + modifycount + bookingcountrygroup + daystodep + eticketed + bookingcrscodegroup + upline + downline, data = reg_data, family = binomial(link = "logit") )
+summary(logit_noparty)
+
+#Partial F Test
+anova(logit_base, logit_noparty, test = "LR")
+```
+The partial F test for the group size variable indicates that this is not statistically significant. Additionally, the robustness check shows no major implications for other coefficients. As such, we will remove this from our final model.
+
+### Upline / Downline
+```{r}
+#Regression without upline
+logit_noupline <- glm( noshow ~ status + assignedseat + unitedclass + groupsize + discounted + modifycount + bookingcountrygroup + daystodep + eticketed + bookingcrscodegroup + downline, data = reg_data, family = binomial(link = "logit") )
+summary(logit_noupline)
+
+#Regression without upline/downline for F test
+logit_noconnections <- glm( noshow ~ status + assignedseat + unitedclass + groupsize + discounted + modifycount + bookingcountrygroup + daystodep + eticketed + bookingcrscodegroup, data = reg_data, family = binomial(link = "logit") )
+summary(logit_noconnections)
+
+#Partial F Test
+anova(logit_base, logit_noconnections, test = "LR")
+```
+While the removal of the upline variable indicates limited change to the coefficients, the partial F test indicates that - coupled with downline - we should continue to include the variable in our final model.
+
+## Final Regression & Predictions
+Given the tests above, our final model for analysis can be found here:
+```{r}
+#Final Model
+logit_final <- glm( noshow ~ status + assignedseat + unitedclass + discounted + modifycount + bookingcountrygroup + daystodep + eticketed + bookingcrscodegroup + upline + downline, data = reg_data, family = binomial(link = "logit") )
+summary(logit_final)
+
+#Adding Predictions
+reg_data$logit_prediction <- predict(logit_final, reg_data, type = "response")
+```
