@@ -247,3 +247,54 @@ summary(logit_final)
 #Adding Predictions
 reg_data$logit_prediction <- predict(logit_final, reg_data, type = "response")
 ```
+##Additional/Alternative Thoughts
+```{r}
+#data cleaning
+united <- united %>%
+  mutate(mileageplus = ifelse(mileageplus=="", "none", mileageplus),
+         bookingcountry = ifelse(bookingcountry=="", "unknown", bookingcountry),
+         bookingcrscode = ifelse(bookingcrscode=="", "unknown", bookingcrscode),
+         bookingagentdutycode = ifelse(bookingagentdutycode=="", "unknown", bookingagentdutycode),
+         partysize = ifelse(numberinparty >= 6, 6, numberinparty),
+         days = ifelse(daystodep >=91, 91, daystodep),
+         dayscat = ifelse(days>=90, "Three Months+",
+                          ifelse(days>=60, "Two to Three Months",
+                          ifelse(days>=30, "One to Two Months",
+                          ifelse(days<=9,gsub("\\s", "",paste("0",days)),days)))),
+         cnx = ifelse(downline==1 | upline==1, 1, 0),
+         lastminutebook = ifelse(daystodep <= 4, 1, 0),
+         uabooked = ifelse(bookingcrscode=="UA", 1, 0),
+         aabooked = ifelse(bookingcrscode=="AA", 1, 0),
+         smallbooked = ifelse(uabooked==0 & aabooked==0,1,0),
+         generalclass = ifelse(bookingclass %in% c("F", "A"), "First Class", 
+                               ifelse(bookingclass %in% c("J", "C", "D"), "Full Biz",
+                               ifelse(bookingclass=="P", "Disc Biz",
+                               ifelse(bookingclass=="Z", "Deep Disc Biz",
+                               ifelse(bookingclass %in% c("Y","B"), "Full Econ",
+                               ifelse(bookingclass %in% c("M", "E", "U", "H", "Q", "V", "W"), "Disc Econ",
+                               ifelse(bookingclass %in% c("S", "T", "L", "K", "G", "N"), "Deep Disc Econ",
+                               ifelse(bookingclass %in% c("XF", "XY"), "Reward - Saver",
+                               ifelse(bookingclass %in% c("NF", "NY"), "Reward - Upgrade","Other"))))))))),
+         bookingregion = ifelse(bookingcountry=="US", "US",
+                  ifelse(bookingcountry %in% c("AL","AT","BE","CH","CS","CY","DE","DK","FR","GB","NL","NO","RO","RS","SE"),"Europe",
+                  ifelse(bookingcountry %in% c("CA","MX","AR","BR"), "Other Americas",
+                  ifelse(bookingcountry %in% c("CM","ET","IL","IN","LB","MW","NA","PK","SA","ZA","ZW"), "EMEA",
+                  ifelse(bookingcountry %in% c("AU","CN","HK","JP","KR","NZ","PH","TH"), "APAC",
+                  ifelse(bookingcountry=="","unknown","Other"))))))
+ )
+
+united <- united %>% unique()
+
+
+lapply(united[-5], table)
+
+model1 <- glm(noshow ~ as.factor(partysize) + as.factor(dayscat) + as.factor(bookingregion) + as.factor(generalclass) + upline + downline, data=subset(united,lastminutebook==0), family=binomial(link=logit))
+coeftest(model1, type="HC1")
+summary(model1)
+
+model2 <- glm(noshow ~ as.factor(partysize) + as.factor(dayscat) + as.factor(bookingregion) + as.factor(generalclass) + upline + downline + aabooked + smallbooked, data=subset(united,lastminutebook==0), family=binomial(link=logit))
+coeftest(model2, type="HC1")
+
+
+summary(model2)
+```
